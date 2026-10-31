@@ -4,7 +4,7 @@
 #include <Preferences.h>
 
 // =====================================================================
-//  BUS I2C PCA9685 (Wire, SDA 22 / SCL 23)
+//  BUS I2C PCA9685 (Wire, SDA 22 / SCL 23) -- test edit
 // =====================================================================
 #define PCA_SDA 22
 #define PCA_SCL 23
