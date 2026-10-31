@@ -22,8 +22,8 @@ uint16_t nilaiCh[NUM_CH] = {0};
 uint16_t pwmMaks = 100;
 
 // =====================================================================
-//  SENSOR IR HW-201 (OUT LOW = ada benda / terdeteksi)
-//  IR zona z mengatur lampu CH z
+//  SENSOR IR HW-201 (OUT LOW = ada benda / terdeteksi) -- test edit lagi ah
+//  IR zona z mengatur lampu CH z -- test edit lagi ah lagi
 // =====================================================================
 const uint8_t IR_PIN[NUM_CH] = {15, 2, 0, 4, 16, 17, 5, 18, 19, 21};
 #define IR_AKTIF LOW
