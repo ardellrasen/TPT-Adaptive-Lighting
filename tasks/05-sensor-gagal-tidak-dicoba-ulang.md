@@ -1,7 +1,7 @@
 # Task 05 — Sensor BH1750 yang gagal tidak pernah dicoba ulang
 
 - **Prioritas:** Sedang
-- **Status:** Belum dikerjakan
+- **Status:** Kode selesai, perlu uji hardware
 - **Area kode:** `initSensor()` (baris 176–202), `bacaSensorMentah()` (baris 149–153), `langkahKontrol()`
 - **Referensi:** `SPESIFIKASI.md` §6, §12 poin 5
 
@@ -39,4 +39,4 @@ Sensor yang bermasalah dipulihkan otomatis tanpa reset, dan pengguna bisa memicu
 - [ ] Boot dengan satu BH1750 dicabut → sambungkan → dalam ≤ 10 detik zona tersebut membaca normal tanpa reset.
 - [ ] Cabut BH1750 saat mode KONTROL → zona menampilkan `ERR`, zona lain tetap berjalan normal → sambungkan lagi → pulih otomatis.
 - [ ] Perintah `init` berfungsi dan tercantum di `help`.
-- [ ] Compile sukses, spesifikasi diperbarui.
+- [x] Compile sukses, spesifikasi diperbarui.

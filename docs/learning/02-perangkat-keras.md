@@ -35,7 +35,7 @@ flowchart LR
     TCA1 --> S07["BH1750 zona 0-7<br/>alamat 0x23"]
     TCA2 --> S89["BH1750 zona 8-9<br/>alamat 0x23"]
 
-    IR["10 sensor IR HW-201"] -->|"10 kabel digital<br/>GPIO 15,2,0,4,16,17,5,18,19,21"| ESP
+    IR["10 sensor IR HW-201"] -->|"10 kabel digital<br/>GPIO 13,14,27,4,16,17,34,18,19,21"| ESP
 ```
 
 Ada **3 jalur** komunikasi:
@@ -206,9 +206,9 @@ Sensor ini paling sederhana: outputnya hanya **HIGH** atau **LOW**.
 
 > Perhatikan: **LOW = terdeteksi** (terbalik dari yang mungkin kamu duga). Ini disebut "active low". Di kode, ditulis sebagai `#define IR_AKTIF LOW` supaya mudah dibaca.
 
-Pin dipasang `INPUT_PULLUP`, artinya ESP32 "menarik" pin ke HIGH secara default. Jadi kalau kabel sensor lepas, pin terbaca HIGH = "tidak ada orang", sehingga lampu tidak menyala sembarangan.
+Pin dipasang `INPUT_PULLUP`, artinya ESP32 "menarik" pin ke HIGH secara default. Jadi kalau kabel sensor lepas, pin terbaca HIGH = "tidak ada orang", sehingga lampu tidak menyala sembarangan. Pengecualiannya GPIO 34 (zona 6): pin ini tidak punya pull-up internal, jadi dipasang `INPUT` dengan resistor pull-up eksternal 10 kΩ ke 3,3 V.
 
-> **Catatan penting:** Beberapa pin IR (GPIO 0, 2, 5, 15) adalah *pin strapping* ESP32, yang menentukan mode saat ESP32 menyala. Lihat [Task 01](../../tasks/01-pin-strapping-ir.md).
+> **Catatan penting:** Sensor IR sengaja tidak memakai *pin strapping* ESP32 (GPIO 0, 2, 5, 12, 15), yang menentukan mode saat ESP32 menyala. Lihat [Task 01](../../tasks/01-pin-strapping-ir.md).
 
 ## Rangkuman Bab 2
 
@@ -216,6 +216,6 @@ Pin dipasang `INPUT_PULLUP`, artinya ESP32 "menarik" pin ke HIGH secara default.
 - **TCA9548A** = resepsionis yang menyambungkan ke satu sensor saja, karena semua sensor beralamat sama.
 - Karena kedua TCA juga beralamat sama, **`Wire1` dipindah-pindah pinnya** dengan `pilihBus()`.
 - **PWM** = nyala-mati sangat cepat; 0–4095; dibatasi oleh **`pwmMaks`** lewat `setChannel()`.
-- **IR**: LOW = ada orang.
+- **IR**: LOW = ada orang. Pin-nya bukan pin strapping, jadi deteksi saat reset tidak mengganggu boot.
 
 Lanjut ke [Bab 3 — Alur Program](03-alur-program.md).

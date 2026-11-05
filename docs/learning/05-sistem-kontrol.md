@@ -143,7 +143,11 @@ Cahaya luar naik dari 50 menjadi 250 lux. Dengan PWM 84, lux sekarang 250 + 252 
 
 > **Jebakan:** Kalau target 300 lux tapi `pwmMaks` terlalu kecil, lampu tidak akan pernah cukup terang. PWM akan "mentok" di `pwmMaks` dan lux tetap di bawah 300. Itu bukan bug, tapi limiter yang bekerja.
 
-> **Jebakan 2:** `kp 0` **tidak** menghentikan kontrol, karena `STEP_MIN` minimal 1. Lihat [Task 02](../../tasks/02-kp-nol-tetap-bergerak.md).
+> **Catatan:** `kp 0` **membekukan** PWM semua zona, sedangkan lux tetap dibaca dan ditampilkan. Lampu tidak mati, hanya berhenti disesuaikan. Selama `KP` lebih dari 0, selisih sekecil apa pun tetap dikoreksi minimal `STEP_MIN`. Lihat [Task 02](../../tasks/02-kp-nol-tetap-bergerak.md).
+>
+> ```cpp
+> if (KP <= 0) continue;   // kp 0 -> koreksi dibekukan, lux tetap dimonitor
+> ```
 
 ## 5.6 Kalau sensor rusak?
 
@@ -159,12 +163,41 @@ Kalau sensor zona tertentu error, zona itu **dilewati**: PWM-nya dibiarkan, zona
 
 Cara membaca: `Z<zona>:<lux>/<pwm>`. Contoh `Z0:312.5/84` = zona 0, lux 312,5, PWM 84.
 
+### Sensor dicoba lagi secara otomatis
+
+Sensor yang error tidak langsung dianggap rusak selamanya. Sistem memakai dua langkah:
+
+1. **Mendeteksi:** `bacaSensorMentah()` menghitung kegagalan beruntun di `gagalBeruntun[z]`. Setelah **3 kali gagal beruntun**, sensor ditandai gagal (`sensorOk[z] = false`). Satu kali baca berhasil mengembalikan hitungannya ke 0.
+2. **Mencoba lagi:** `pulihkanSensor()` dipanggil di setiap putaran `loop()`, tetapi hanya mencoba zona yang ditandai gagal, **maksimal sekali per 5 detik per zona**.
+
+> **Perumpamaan: menelepon teman yang tidak mengangkat.** Tiga kali tidak diangkat, kamu anggap dia sedang tidak bisa dihubungi. Kamu tidak menelepon ribuan kali per detik, cukup coba lagi tiap beberapa saat. Begitu diangkat, urusan berjalan seperti biasa.
+
+Contoh di Serial saat kabel sensor zona 1 dicabut lalu dipasang lagi di mode KONTROL:
+
+```
+[SENSOR] Zona 1 hilang
+[KONTROL 300-400 lx, maks 100] Z0:312.5/84  Z1:ERR/40  Z2:355.0/61 ...
+[SENSOR] Zona 1 pulih
+[KONTROL 300-400 lx, maks 100] Z0:312.5/84  Z1:298.0/41  Z2:355.0/61 ...
+```
+
+Selama `ERR`, PWM zona itu **ditahan**, supaya lampu tidak tiba-tiba mati atau berubah hanya karena kabel sensor bermasalah.
+
+Beberapa hal yang perlu diingat:
+
+- Setelah init ulang, bacaan **200 ms pertama** dianggap belum siap, karena BH1750 butuh waktu untuk pengukuran pertamanya.
+- Di mode MANUAL dan MANUAL_IR, sensor tidak dibaca otomatis, jadi sensor yang tercabut baru terdeteksi setelah perintah `baca` gagal 3 kali.
+- Kalau sensor kehilangan daya tanpa 3 kali gagal baca beruntun, sensor tidak di-init ulang otomatis.
+
+Perintah `init` (atau `scan`) menjalankan `initSensor()` kapan saja dan mencetak hasil semua zona. Pakai perintah ini kalau bacaan sensor terlihat aneh.
+
 ## Rangkuman Bab 5
 
 - Kontrol berjalan tiap **500 ms**, setiap zona **sendiri-sendiri**.
 - Target berupa **rentang (deadband)** agar lampu tidak naik-turun terus.
 - Langkah **sebanding dengan jarak** ke target (`KP`), dijepit di `STEP_MIN`–`STEP_MAX`.
 - PWM selalu dijepit **0 sampai `pwmMaks`**.
-- Sensor error → zona itu diam, yang lain jalan terus.
+- `kp 0` → PWM dibekukan, lux tetap dibaca.
+- Sensor error → zona itu diam, yang lain jalan terus. Sensor yang gagal dicoba lagi otomatis.
 
 Lanjut ke [Bab 6 — Kalibrasi Sensor](06-kalibrasi.md).

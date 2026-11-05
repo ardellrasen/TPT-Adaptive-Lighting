@@ -4,7 +4,7 @@
 #include <Preferences.h>
 
 // =====================================================================
-//  BUS I2C PCA9685 (Wire, SDA 22 / SCL 23) -- test edit
+//  BUS I2C PCA9685 (Wire, SDA 22 / SCL 23)
 // =====================================================================
 #define PCA_SDA 22
 #define PCA_SCL 23
@@ -22,14 +22,17 @@ uint16_t nilaiCh[NUM_CH] = {0};
 uint16_t pwmMaks = 100;
 
 // =====================================================================
-//  SENSOR IR HW-201 (OUT LOW = ada benda / terdeteksi) -- test edit lagi ah
-//  IR zona z mengatur lampu CH z -- test edit lagi ah lagi
+//  SENSOR IR HW-201 (OUT LOW = ada benda / terdeteksi)
+//  IR zona z mengatur lampu CH z
+//  Jangan pakai pin strapping (GPIO 0, 2, 5, 12, 15).
+//  GPIO 34-39 input-only tanpa pull-up internal: wajib pull-up eksternal.
 // =====================================================================
-const uint8_t IR_PIN[NUM_CH] = {15, 2, 0, 4, 16, 17, 5, 18, 19, 21};
+const uint8_t IR_PIN[NUM_CH] = {13, 14, 27, 4, 16, 17, 34, 18, 19, 21};
 #define IR_AKTIF LOW
 
 unsigned long irTimerMs = 10000;       // lama lampu menyala (ms), "timer <detik>"
-uint16_t irPwmOn[NUM_CH];              // kecerahan saat terdeteksi per zona
+bool irIkutMaks[NUM_CH];               // true = PWM saat terdeteksi mengikuti pwmMaks
+uint16_t irPwmOn[NUM_CH];              // PWM manual, dipakai bila irIkutMaks[z] false
 bool irNyala[NUM_CH] = {false};
 unsigned long irTerakhir[NUM_CH] = {0};
 
@@ -58,6 +61,13 @@ const uint8_t SENSOR_CH[NUM_CH]  = {0, 1, 2, 3, 4, 5, 6, 7, 0, 1};
 BH1750 sensor[NUM_CH];
 bool  sensorOk[NUM_CH] = {false};
 float luxCh[NUM_CH];
+
+#define SENSOR_GAGAL_MAKS 3     // gagal baca beruntun sebelum sensor dianggap hilang
+#define SENSOR_RETRY_MS   5000  // jeda minimum antar percobaan init ulang per zona
+#define SENSOR_SIAP_MS    200   // waktu pengukuran pertama BH1750 setelah init
+
+uint8_t gagalBeruntun[NUM_CH] = {0};
+unsigned long tCobaInit[NUM_CH] = {0};
 
 // =====================================================================
 //  KALIBRASI (berdasarkan zona 0, dipakai untuk semua zona)
@@ -148,8 +158,20 @@ bool cekTCA(uint8_t modul) {
 // Bacaan mentah BH1750 (tanpa kalibrasi), negatif jika gagal
 float bacaSensorMentah(uint8_t z) {
   if (!sensorOk[z]) return -1;
-  if (!tcaSelect(SENSOR_TCA[z], SENSOR_CH[z])) return -1;
-  return sensor[z].readLightLevel();
+  if (millis() - tCobaInit[z] < SENSOR_SIAP_MS) return -1;   // pengukuran pertama belum siap
+
+  float mentah = -1;
+  if (tcaSelect(SENSOR_TCA[z], SENSOR_CH[z])) mentah = sensor[z].readLightLevel();
+
+  if (mentah >= 0) {
+    gagalBeruntun[z] = 0;
+  } else if (++gagalBeruntun[z] >= SENSOR_GAGAL_MAKS) {
+    sensorOk[z] = false;     // pulihkanSensor() akan mencoba init ulang
+    Serial.print("[SENSOR] Zona ");
+    Serial.print(z);
+    Serial.println(" hilang");
+  }
+  return mentah;
 }
 
 // Bacaan terkalibrasi (dipakai baca, status, dan sistem kontrol)
@@ -187,6 +209,8 @@ void initSensor() {
   for (uint8_t z = 0; z < NUM_CH; z++) {
     sensorOk[z] = false;
     luxCh[z] = -1;
+    gagalBeruntun[z] = 0;
+    tCobaInit[z] = millis();
     if (tcaSelect(SENSOR_TCA[z], SENSOR_CH[z])) {
       sensorOk[z] = sensor[z].begin(BH1750::CONTINUOUS_HIGH_RES_MODE, BH1750_ADDR, &Wire1);
     }
@@ -199,6 +223,28 @@ void initSensor() {
     Serial.println(sensorOk[z] ? " : BH1750 OK" : " : BH1750 GAGAL");
   }
   delay(200);
+}
+
+// Init ulang sensor yang gagal, maksimal sekali per SENSOR_RETRY_MS per zona
+void pulihkanSensor(unsigned long now) {
+  for (uint8_t z = 0; z < NUM_CH; z++) {
+    if (sensorOk[z] || now - tCobaInit[z] < SENSOR_RETRY_MS) continue;
+    tCobaInit[z] = now;
+
+    if (!tcaSelect(SENSOR_TCA[z], SENSOR_CH[z])) continue;
+
+    // Cek alamat dulu: begin() mencetak error ke Serial bila sensor belum ada
+    Wire1.beginTransmission(BH1750_ADDR);
+    if (Wire1.endTransmission() != 0) continue;
+
+    if (sensor[z].begin(BH1750::CONTINUOUS_HIGH_RES_MODE, BH1750_ADDR, &Wire1)) {
+      sensorOk[z] = true;
+      gagalBeruntun[z] = 0;
+      Serial.print("[SENSOR] Zona ");
+      Serial.print(z);
+      Serial.println(" pulih");
+    }
+  }
 }
 
 // =====================================================================
@@ -350,6 +396,7 @@ void langkahKontrol() {
     float lux = bacaSensor(z);
     luxCh[z] = lux;
     if (lux < 0) continue;   // sensor error -> PWM zona ini ditahan
+    if (KP <= 0) continue;   // kp 0 -> koreksi dibekukan, lux tetap dimonitor
 
     int delta = 0;
     if (lux < thBawah) {
@@ -389,8 +436,17 @@ void cetakMonitor() {
 // =====================================================================
 //  MODE MANUAL_IR (HW-201)
 //  Default lampu mati. IR zona z terdeteksi -> lampu CH z menyala
-//  dengan PWM irPwmOn[z] selama irTimerMs. Timer direset setiap deteksi.
+//  dengan PWM pwmIrZona(z) selama irTimerMs. Timer direset setiap deteksi.
 // =====================================================================
+uint16_t pwmIrZona(uint8_t z) {
+  return irIkutMaks[z] ? pwmMaks : min(irPwmOn[z], pwmMaks);
+}
+
+void cetakPwmIr(uint8_t z) {
+  Serial.print(pwmIrZona(z));
+  Serial.print(irIkutMaks[z] ? " (maks)" : " (manual)");
+}
+
 void prosesIR(unsigned long now) {
   for (uint8_t z = 0; z < NUM_CH; z++) {
     bool deteksi = (digitalRead(IR_PIN[z]) == IR_AKTIF);
@@ -399,7 +455,7 @@ void prosesIR(unsigned long now) {
       irTerakhir[z] = now;             // reset timer
       if (!irNyala[z]) {
         irNyala[z] = true;
-        setChannel(z, irPwmOn[z]);
+        setChannel(z, pwmIrZona(z));
         Serial.print("[IR] Zona ");
         Serial.print(z);
         Serial.print(" terdeteksi -> lampu ON (PWM ");
@@ -433,7 +489,7 @@ void cetakIR() {
     Serial.print(" | ");
     Serial.print(deteksi ? "TERDETEKSI" : "kosong    ");
     Serial.print(" | PWM nyala ");
-    Serial.print(min(irPwmOn[z], pwmMaks));
+    cetakPwmIr(z);
     Serial.print(" | lampu ");
     if (mode == MODE_MANUAL_IR && irNyala[z]) {
       unsigned long lewat = now - irTerakhir[z];
@@ -463,8 +519,9 @@ void cetakBantuan() {
   Serial.println("  timer <detik>       lama lampu menyala di manual_ir, contoh: timer 10");
   Serial.println("  ir                  tampilkan status semua sensor IR");
   Serial.println("  baca                baca semua BH1750 (terkalibrasi)");
+  Serial.println("  init / scan         inisialisasi ulang semua BH1750 dan tampilkan hasilnya");
   Serial.println("  th <bawah> <atas>   ubah threshold, contoh: th 300 400");
-  Serial.println("  kp <nilai>          ubah gain kontrol, contoh: kp 0.05");
+  Serial.println("  kp <nilai>          ubah gain kontrol, contoh: kp 0.05 (kp 0 = PWM dibekukan)");
   Serial.println("  step <min> <maks>   ubah langkah PWM kontrol, contoh: step 1 5");
   Serial.println("  kalinfo             tampilkan GAIN, OFFSET, dan titik kalibrasi");
   Serial.println("  status              tampilkan mode, threshold, PWM, lux");
@@ -496,6 +553,7 @@ void cetakBantuanIR() {
   Serial.println("Timer direset setiap ada deteksi, lampu mati setelah timer habis.");
   Serial.println("  <zona> <nilai>      PWM saat terdeteksi, contoh: 3 80");
   Serial.println("  all <nilai>         PWM saat terdeteksi untuk semua zona");
+  Serial.println("Zona yang belum di-set mengikuti PWM maks.");
   Serial.println("  timer <detik>       lama lampu menyala, contoh: timer 10");
   Serial.println("  ir                  status sensor IR & sisa timer");
   Serial.println("  manual              keluar ke mode manual");
@@ -543,7 +601,7 @@ void cetakStatus() {
     Serial.print(" (~");
     Serial.print(nilaiCh[z] * 100.0 / 4095.0, 1);
     Serial.print("%) | PWM IR ");
-    Serial.print(min(irPwmOn[z], pwmMaks));
+    cetakPwmIr(z);
     Serial.print(" | Lux ");
     if (luxCh[z] < 0) Serial.println("ERR / belum dibaca");
     else Serial.println(luxCh[z], 1);
@@ -635,6 +693,7 @@ void prosesPerintah(String input) {
   if (tok[0] == "baca")    { bacaSemua();      return; }
   if (tok[0] == "kalinfo") { cetakKalibrasi(); return; }
   if (tok[0] == "ir")      { cetakIR();        return; }
+  if (tok[0] == "init" || tok[0] == "scan") { initSensor(); return; }
 
   if (tok[0] == "maks") {
     if (n < 2 || !isAngka(tok[1])) {
@@ -649,6 +708,7 @@ void prosesPerintah(String input) {
     uint8_t diturunkan = 0;
     for (uint8_t z = 0; z < NUM_CH; z++) {
       if (nilaiCh[z] > pwmMaks) { setChannel(z, pwmMaks); diturunkan++; }
+      if (irNyala[z]) setChannel(z, pwmIrZona(z));   // lampu IR yang menyala ikut batas baru
     }
 
     Serial.print(">> PWM maksimum: ");
@@ -851,6 +911,7 @@ void prosesPerintah(String input) {
     for (uint8_t z = 0; z < NUM_CH; z++) {
       if (zona >= 0 && z != zona) continue;
       irPwmOn[z] = nilai;
+      irIkutMaks[z] = false;
       if (irNyala[z]) setChannel(z, nilai);   // zona yang sedang menyala ikut berubah
     }
     if (zona < 0) Serial.print("Semua zona");
@@ -884,8 +945,8 @@ void setup() {
 
   // Sensor IR
   for (uint8_t z = 0; z < NUM_CH; z++) {
-    pinMode(IR_PIN[z], INPUT_PULLUP);
-    irPwmOn[z] = pwmMaks;          // default PWM saat terdeteksi = batas maks
+    pinMode(IR_PIN[z], IR_PIN[z] >= 34 ? INPUT : INPUT_PULLUP);   // GPIO 34-39 tanpa pull-up internal
+    irIkutMaks[z] = true;          // default PWM saat terdeteksi = batas maks
   }
 
   // Bus PCA9685
@@ -910,6 +971,8 @@ void loop() {
   if (bacaBaris(baris)) prosesPerintah(baris);
 
   unsigned long now = millis();
+
+  pulihkanSensor(now);
 
   if (mode == MODE_KONTROL) {
     if (now - tKontrol >= CONTROL_INTERVAL) {

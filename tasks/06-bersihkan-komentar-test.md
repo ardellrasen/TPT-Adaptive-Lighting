@@ -1,7 +1,7 @@
 # Task 06 — Bersihkan sisa komentar "test edit"
 
 - **Prioritas:** Rendah (kerapian kode)
-- **Status:** Belum dikerjakan
+- **Status:** Selesai
 - **Area kode:** `sketch_oct28c.ino` baris 7, 25, 26
 
 ## Latar Belakang
@@ -21,5 +21,5 @@ Ada sisa komentar uji coba di header bagian kode:
 
 ## Kriteria Selesai
 
-- [ ] Tidak ada lagi teks `test edit` di kode.
-- [ ] Compile sukses.
+- [x] Tidak ada lagi teks `test edit` di kode.
+- [x] Compile sukses.

@@ -31,7 +31,7 @@ Ringkasan wiring:
 | `Wire1` (TCA1) | GPIO 32 | GPIO 33 | BH1750 zona 0–7 |
 | `Wire1` (TCA2) | GPIO 25 | GPIO 26 | BH1750 zona 8–9 |
 
-Sensor IR zona 0–9: GPIO `15, 2, 0, 4, 16, 17, 5, 18, 19, 21`.
+Sensor IR zona 0–9: GPIO `13, 14, 27, 4, 16, 17, 34, 18, 19, 21`. GPIO 34 perlu resistor pull-up eksternal 10 kΩ ke 3,3 V.
 
 Pemetaan lengkap ada di [SPESIFIKASI.md](SPESIFIKASI.md#2-perangkat-keras).
 
@@ -80,6 +80,7 @@ Daftar perintah lengkap ada di [SPESIFIKASI.md](SPESIFIKASI.md#10-antarmuka-seri
 
 - [SPESIFIKASI.md](SPESIFIKASI.md): spesifikasi lengkap firmware (arsitektur, algoritma kontrol, kalibrasi, perintah serial).
 - [tasks/](tasks/README.md): daftar task pengembangan berikutnya.
+- [changes/](changes/README.md): catatan perubahan, kebutuhan wiring, dan hal yang perlu diperhatikan.
 
 ## Struktur Repo
 
@@ -87,4 +88,5 @@ Daftar perintah lengkap ada di [SPESIFIKASI.md](SPESIFIKASI.md#10-antarmuka-seri
 sketch_oct28c.ino   firmware utama
 SPESIFIKASI.md      dokumen spesifikasi
 tasks/              dokumen task pengembangan
+changes/            catatan perubahan per task
 ```

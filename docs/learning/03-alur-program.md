@@ -14,7 +14,7 @@ Setiap program Arduino punya dua fungsi wajib:
 ```mermaid
 flowchart TD
     A([ESP32 menyala]) --> B["Serial.begin 115200<br/>buka jalur ke laptop"]
-    B --> C["Atur 10 pin IR<br/>sebagai INPUT_PULLUP"]
+    B --> C["Atur 10 pin IR<br/>sebagai input"]
     C --> D["Siapkan PCA9685<br/>frekuensi 1000 Hz, semua lampu 0"]
     D --> E["initSensor<br/>cek 2 TCA dan 10 BH1750"]
     E --> F["muatKalibrasi<br/>ambil data kalibrasi dari flash"]
@@ -38,7 +38,7 @@ Kalibrasi dimuat: GAIN 1.1763  OFFSET 1.36
 >> Mode awal: MANUAL
 ```
 
-Kalau ada sensor yang tertulis `BH1750 GAGAL`, artinya sensor itu tidak terjawab saat boot dan **akan terus dianggap rusak** sampai ESP32 di-reset (lihat [Task 05](../../tasks/05-sensor-gagal-tidak-dicoba-ulang.md)).
+Kalau ada sensor yang tertulis `BH1750 GAGAL`, artinya sensor itu tidak menjawab saat boot. ESP32 tidak perlu di-reset, karena `loop()` akan mencobanya lagi secara berkala (lihat [Bab 5.6](05-sistem-kontrol.md#56-kalau-sensor-rusak)).
 
 ## 3.2 `loop()`: kesibukan sepanjang hari
 
@@ -49,7 +49,9 @@ void loop() {
 
   unsigned long now = millis();                  // 2. jam berapa sekarang?
 
-  if (mode == MODE_KONTROL) {                    // 3. kerjakan tugas sesuai mode
+  pulihkanSensor(now);                           // 3. ada sensor gagal yang perlu dicoba lagi?
+
+  if (mode == MODE_KONTROL) {                    // 4. kerjakan tugas sesuai mode
     if (now - tKontrol >= CONTROL_INTERVAL) { tKontrol = now; langkahKontrol(); }
     if (now - tPrint   >= PRINT_INTERVAL)   { tPrint   = now; cetakMonitor();   }
   } else if (mode == MODE_MANUAL_IR) {
@@ -64,7 +66,8 @@ flowchart TD
     A -- ya --> B[prosesPerintah]
     A -- tidak --> C
     B --> C["now = millis()"]
-    C --> D{Mode apa?}
+    C --> R["pulihkanSensor<br/>coba lagi sensor yang gagal,<br/>maks. sekali per 5 detik per zona"]
+    R --> D{Mode apa?}
     D -- KONTROL --> E{"Sudah 500 ms sejak<br/>kontrol terakhir?"}
     E -- ya --> F[langkahKontrol]
     E -- tidak --> G
@@ -164,6 +167,6 @@ Kalimat lebih dari 64 huruf: sisanya **dibuang diam-diam**.
 - `setup()` = persiapan sekali; `loop()` = berulang terus.
 - Tugas berkala memakai **`millis()`**, bukan `delay()`, supaya ESP32 tetap responsif.
 - `bacaBaris()` mengumpulkan huruf sampai Enter, lalu `prosesPerintah()` menjalankannya.
-- Pengecualian: saat **mengambil titik kalibrasi**, ESP32 memang sengaja "menunggu" ~1 detik (`delay(130)` × 8).
+- Pengecualian: saat **mengambil titik kalibrasi**, ESP32 memang sengaja "menunggu" ~1 detik (`delay(130)` × 8). Perintah `init` juga berhenti sebentar, sekitar 400 ms bila semua sensor merespons.
 
 Lanjut ke [Bab 4 — Mode dan Perintah Serial](04-mode-dan-perintah.md).

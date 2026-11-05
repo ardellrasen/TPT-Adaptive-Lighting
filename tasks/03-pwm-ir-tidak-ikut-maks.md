@@ -1,7 +1,7 @@
 # Task 03 — PWM IR tidak ikut berubah saat `maks` diubah
 
 - **Prioritas:** Sedang
-- **Status:** Belum dikerjakan
+- **Status:** Kode selesai (opsi A), perlu uji hardware
 - **Area kode:** `setup()` (baris 888), perintah `maks` di `prosesPerintah()` (baris 639–665), `cetakStatus()`, `cetakIR()`
 - **Referensi:** `SPESIFIKASI.md` §9, §12 poin 3
 
@@ -42,4 +42,4 @@ Rekomendasi: **A**, karena perilakunya jelas dan nilai yang di-set manual oleh p
 - [ ] Boot → `maks 500` → `manual_ir` → IR terdeteksi → lampu menyala PWM 500.
 - [ ] `3 80` di MANUAL_IR → `maks 500` → zona 3 tetap PWM 80, zona lain 500.
 - [ ] `maks 50` → semua zona menyala maksimal 50.
-- [ ] Compile sukses, spesifikasi diperbarui.
+- [x] Compile sukses, spesifikasi diperbarui.

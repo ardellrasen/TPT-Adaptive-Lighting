@@ -1,7 +1,7 @@
 # Task 01 — Pindahkan sensor IR dari pin strapping ESP32
 
 - **Prioritas:** Tinggi (mempengaruhi boot dan upload)
-- **Status:** Belum dikerjakan
+- **Status:** Kode selesai, perlu rewiring dan uji hardware
 - **Area kode:** `sketch_oct28c.ino` → `IR_PIN[]` (baris 28), `setup()` (`pinMode`)
 - **Referensi:** `SPESIFIKASI.md` §2.3, §12 poin 1
 
@@ -34,8 +34,8 @@ ESP32 selalu boot normal dan upload lancar, apa pun kondisi sensor IR.
 
 ## Kriteria Selesai
 
-- [ ] Tidak ada IR yang memakai GPIO 0, 2, 5, 12, 15.
+- [x] Tidak ada IR yang memakai GPIO 0, 2, 5, 12, 15.
 - [ ] ESP32 boot normal saat semua sensor IR dalam kondisi terdeteksi (ditutup tangan) ketika reset.
 - [ ] Upload via `arduino-cli upload` berhasil tanpa menekan tombol BOOT dengan sensor terpasang.
 - [ ] Perintah `ir` menampilkan status yang benar untuk semua zona.
-- [ ] Compile sukses, `SPESIFIKASI.md` diperbarui.
+- [x] Compile sukses, `SPESIFIKASI.md` diperbarui.

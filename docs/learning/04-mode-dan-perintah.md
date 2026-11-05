@@ -80,7 +80,7 @@ Kode memeriksa `tok[0]` satu per satu dari atas ke bawah, seperti petugas yang m
 
 ```mermaid
 flowchart TD
-    S([token sudah siap]) --> U{"Perintah umum?<br/>help, status, baca, kalinfo, ir,<br/>maks, timer, manual, manual_ir,<br/>kalibrasi, kontrol, off, th, kp, step"}
+    S([token sudah siap]) --> U{"Perintah umum?<br/>help, status, baca, kalinfo, ir,<br/>init, scan, maks, timer, manual, manual_ir,<br/>kalibrasi, kontrol, off, th, kp, step"}
     U -- ya --> UX[jalankan, selesai]
     U -- tidak --> K{"Mode KALIBRASI?"}
     K -- ya --> KX{"angka saja / cek /<br/>batal / reset?"}
